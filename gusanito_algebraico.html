@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gusanito Algebraico</title>
+<style>
+  :root { --bg:#101827; --panel:#19253a; --ink:#f4f7fb; --muted:#aebbd0; --green:#5ee09a; --gold:#ffd166; --pink:#ff7aa2; --blue:#70c5ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; color:var(--ink); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:radial-gradient(circle at top,#233958 0,#101827 55%); }
+  .wrap { max-width:1100px; margin:auto; padding:20px; }
+  header { display:flex; flex-wrap:wrap; gap:12px; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  h1 { margin:0; font-size:clamp(1.7rem,4vw,2.5rem); letter-spacing:-.03em; }
+  .subtitle { color:var(--muted); margin:5px 0 0; }
+  .pill { border:1px solid #3b506e; border-radius:999px; padding:8px 12px; color:var(--gold); font-weight:700; background:#17243a; }
+  .layout { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(280px,.9fr); gap:16px; align-items:start; }
+  .card { background:rgba(25,37,58,.94); border:1px solid #30435f; border-radius:18px; padding:16px; box-shadow:0 12px 35px #0002; }
+  .game-top { display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .stats { display:flex; gap:8px; flex-wrap:wrap; }
+  .stat { background:#101a2b; padding:8px 12px; border-radius:12px; color:var(--muted); font-size:.92rem; }
+  .stat strong { color:white; margin-left:5px; }
+  canvas { width:100%; height:auto; display:block; border-radius:12px; background:#0b1423; border:1px solid #344761; image-rendering:pixelated; }
+  .buttons { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  button { border:0; cursor:pointer; border-radius:11px; padding:10px 14px; font-weight:750; color:#0d1725; background:var(--green); transition:transform .12s,filter .12s; }
+  button:hover { filter:brightness(1.07); transform:translateY(-1px); }
+  button.secondary { color:var(--ink); background:#344762; }
+  button.gold { background:var(--gold); }
+  button:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+  .section-title { margin:0 0 10px; font-size:1.1rem; }
+  .muted { color:var(--muted); line-height:1.5; }
+  .question { font-size:1.16rem; line-height:1.45; font-weight:750; margin:10px 0 14px; }
+  .answers { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .answers button { background:#263953; color:var(--ink); border:1px solid #415978; text-align:left; }
+  .answers button.correct { background:#1e6a4a; border-color:var(--green); }
+  .answers button.wrong { background:#71344b; border-color:var(--pink); }
+  .feedback { min-height:48px; padding:10px 12px; border-radius:10px; margin-top:10px; background:#101a2b; color:var(--muted); line-height:1.4; }
+  .feedback.good { color:#a4ffd0; border:1px solid #347a5b; }
+  .feedback.bad { color:#ffc0d0; border:1px solid #87435a; }
+  .progress { height:9px; background:#0d1727; border-radius:99px; overflow:hidden; margin:10px 0 14px; }
+  .progress > div { height:100%; width:0%; background:linear-gradient(90deg,var(--green),var(--blue)); transition:width .25s; }
+  .controls { display:grid; grid-template-columns:repeat(3,48px); justify-content:center; gap:6px; margin:14px auto 0; }
+  .controls button { padding:9px 0; background:#344762; color:white; font-size:1.1rem; }
+  .controls .empty { visibility:hidden; }
+  .badge { display:inline-block; border-radius:10px; background:#3c3155; color:#e3c9ff; padding:6px 9px; margin:3px 4px 0 0; font-size:.82rem; }
+  .tiny { font-size:.87rem; }
+  .overlay { display:none; position:absolute; inset:0; background:#07101bdc; border-radius:12px; align-items:center; justify-content:center; text-align:center; padding:20px; }
+  .board-wrap { position:relative; }
+  .overlay.show { display:flex; }
+  .overlay h2 { margin:0 0 8px; font-size:2rem; }
+  .overlay p { color:#d3deec; }
+  .overlay-box { max-width:380px; }
+  footer { color:#8293ac; text-align:center; padding:18px 0 4px; font-size:.85rem; }
+  @media(max-width:800px) { .layout { grid-template-columns:1fr; } .wrap { padding:12px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🐍 Gusanito Algebraico</h1>
+      <p class="subtitle">Come manzanas, resuelve retos y conviértete en maestro de la X.</p>
+    </div>
+    <div class="pill">🎯 Meta: 10 respuestas correctas</div>
+  </header>
+
+  <div class="layout">
+    <section class="card">
+      <div class="game-top">
+        <h2 class="section-title">Tu tablero</h2>
+        <div class="stats">
+          <div class="stat">Puntos <strong id="score">0</strong></div>
+          <div class="stat">Manzanas <strong id="apples">0</strong></div>
+          <div class="stat">Récord <strong id="best">0</strong></div>
+        </div>
+      </div>
+      <div class="board-wrap">
+        <canvas id="game" width="600" height="420" aria-label="Tablero del gusanito"></canvas>
+        <div class="overlay show" id="overlay">
+          <div class="overlay-box">
+            <h2 id="overlayTitle">¡Listo para jugar?</h2>
+            <p id="overlayText">Usa las flechas del teclado o los botones. Come manzanas y contesta preguntas de álgebra para ganar puntos.</p>
+            <button id="startBtn">▶ Empezar juego</button>
+          </div>
+        </div>
+      </div>
+      <div class="buttons">
+        <button id="pauseBtn" class="secondary" disabled>⏸ Pausar</button>
+        <button id="restartBtn" class="secondary">↻ Reiniciar</button>
+        <button id="speedBtn" class="gold">⚡ Velocidad: normal</button>
+      </div>
+      <div class="controls" aria-label="Controles táctiles">
+        <button class="empty">·</button><button data-dir="up" aria-label="Arriba">▲</button><button class="empty">·</button>
+        <button data-dir="left" aria-label="Izquierda">◀</button><button data-dir="down" aria-label="Abajo">▼</button><button data-dir="right" aria-label="Derecha">▶</button>
+      </div>
+      <p class="muted tiny">Consejo: no choques contra las paredes ni contra tu propio cuerpo. En móvil, puedes usar los botones de dirección.</p>
+    </section>
+
+    <aside class="card">
+      <h2 class="section-title">🧠 Reto de álgebra</h2>
+      <div class="progress"><div id="progressBar"></div></div>
+      <p class="muted tiny" id="levelText">Nivel 1 · Calentamiento</p>
+      <div class="question" id="question">Pulsa «Empezar juego» para recibir tu primer reto.</div>
+      <div class="answers" id="answers">
+        <button disabled>Respuesta A</button><button disabled>Respuesta B</button>
+        <button disabled>Respuesta C</button><button disabled>Respuesta D</button>
+      </div>
+      <div class="feedback" id="feedback">Cada respuesta correcta te da 10 puntos. ¡Tú puedes!</div>
+      <div class="buttons">
+        <button id="hintBtn" class="gold" disabled>💡 Ver pista</button>
+        <button id="nextBtn" class="secondary" disabled>Siguiente reto →</button>
+      </div>
+      <hr style="border:0;border-top:1px solid #30435f;margin:18px 0">
+      <h3 class="section-title">🏅 Tus logros</h3>
+      <div id="badges"><span class="badge">🌱 Explorador de la X</span></div>
+      <p class="muted tiny" id="achievementText">Resuelve tu primer reto para desbloquear logros.</p>
+      <p class="muted tiny"><strong>Cómo jugar:</strong> come manzanas para sumar 1 punto y hacer crecer al gusanito. Las preguntas de álgebra aparecen en el panel; cada acierto suma 10 puntos.</p>
+    </aside>
+  </div>
+  <footer>Hecho para aprender jugando · ¡Los errores también enseñan!</footer>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const COLS = 20, ROWS = 14, CELL = 30;
+  const scoreEl = document.getElementById('score');
+  const applesEl = document.getElementById('apples');
+  const bestEl = document.getElementById('best');
+  const overlay = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlayText = document.getElementById('overlayText');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const speedBtn = document.getElementById('speedBtn');
+  const questionEl = document.getElementById('question');
+  const answersEl = document.getElementById('answers');
+  const feedbackEl = document.getElementById('feedback');
+  const hintBtn = document.getElementById('hintBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const progressBar = document.getElementById('progressBar');
+  const levelText = document.getElementById('levelText');
+  const badgesEl = document.getElementById('badges');
+  const achievementText = document.getElementById('achievementText');
+
+  let snake, dir, nextDir, apple, score, apples, timer, running = false, paused = false;
+  let speedMode = 0, correctCount = 0, questionIndex = 0, answered = false, hintUsed = false;
+  let unlocked = new Set();
+  let best = Number(localStorage.getItem('gusanitoAlgebraicoBest') || 0);
+  bestEl.textContent = best;
+
+  const questions = [
+    {q:'Si x = 4, ¿cuánto vale x + 3?', a:['7','12','1','43'], correct:0, hint:'Sustituye la x por 4: 4 + 3.', explain:'x + 3 = 4 + 3 = 7.'},
+    {q:'¿Cuál es el coeficiente de 5x?', a:['x','5','5x','1'], correct:1, hint:'El coeficiente es el número que multiplica a la variable.', explain:'En 5x, el número que multiplica a x es 5.'},
+    {q:'Simplifica: 2x + 3x', a:['5','6x','5x','x'], correct:2, hint:'Suma los coeficientes y conserva la x.', explain:'2x + 3x = (2 + 3)x = 5x.'},
+    {q:'Si x = 3, ¿cuánto vale 2x + 1?', a:['5','7','9','4'], correct:1, hint:'Primero calcula 2 × 3 y luego suma 1.', explain:'2(3) + 1 = 6 + 1 = 7.'},
+    {q:'¿Qué expresión representa “un número más 8”?', a:['8x','x − 8','x + 8','8 − x'], correct:2, hint:'Llama x al número desconocido y luego suma 8.', explain:'“Un número” puede llamarse x; más 8 es x + 8.'},
+    {q:'Simplifica: 7a − 2a', a:['5a','9a','5','14a'], correct:0, hint:'Resta los coeficientes: 7 − 2.', explain:'7a − 2a = (7 − 2)a = 5a.'},
+    {q:'Si y = 5, ¿cuánto vale 3y?', a:['8','15','35','2'], correct:1, hint:'3y significa 3 multiplicado por y.', explain:'3 × 5 = 15.'},
+    {q:'¿Cuál es una variable?', a:['9','+','m','25'], correct:2, hint:'Una variable suele ser una letra que representa un número.', explain:'m es una letra que puede representar distintos valores.'},
+    {q:'Simplifica: 4x + 2 + 3x', a:['7x + 2','9x','7x + 5','4x + 5'], correct:0, hint:'Combina solo los términos que tienen x.', explain:'4x + 3x = 7x; el 2 queda igual: 7x + 2.'},
+    {q:'Un lápiz cuesta p soles. ¿Cuánto cuestan 4 lápices?', a:['p + 4','4 + p','4p','p ÷ 4'], correct:2, hint:'Cuatro grupos de p se escriben como 4 × p.', explain:'4 lápices a p soles cada uno cuestan 4p.'},
+    {q:'Resuelve: x + 6 = 10', a:['16','4','6','10'], correct:1, hint:'¿Qué número más 6 da 10?', explain:'Resta 6 a ambos lados: x = 10 − 6 = 4.'},
+    {q:'Simplifica: 3( x + 2 )', a:['3x + 2','x + 6','3x + 6','5x'], correct:2, hint:'Multiplica 3 por cada término dentro del paréntesis.', explain:'3(x + 2) = 3x + 6.'}
+  ];
+
+  function randomCell() {
+    let p;
+    do { p = {x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)}; }
+    while (snake && snake.some(s => s.x===p.x && s.y===p.y));
+    return p;
+  }
+  function resetGame() {
+    clearInterval(timer);
+    snake = [{x:6,y:7},{x:5,y:7},{x:4,y:7}];
+    dir = {x:1,y:0}; nextDir = {x:1,y:0};
+    score = 0; apples = 0; correctCount = 0; questionIndex = 0;
+    running = false; paused = false; answered = false; hintUsed = false;
+    scoreEl.textContent = score; applesEl.textContent = apples;
+    overlay.classList.add('show');
+    overlayTitle.textContent = '¿Listo para jugar?';
+    overlayText.textContent = 'Usa las flechas del teclado o los botones. Come manzanas y contesta preguntas de álgebra para ganar puntos.';
+    startBtn.textContent = '▶ Empezar juego';
+    pauseBtn.textContent = '⏸ Pausar'; pauseBtn.disabled = true;
+    apple = {x:14,y:7};
+    showQuestion();
+    draw();
+  }
+  function showQuestion() {
+    const q = questions[questionIndex % questions.length];
+    questionEl.textContent = q.q;
+    answersEl.innerHTML = '';
+    q.a.forEach((ans,i) => {
+      const b = document.createElement('button');
+      b.textContent = String.fromCharCode(65+i) + '. ' + ans;
+      b.addEventListener('click', () => answer(i,b));
+      answersEl.appendChild(b);
+    });
+    feedbackEl.className = 'feedback';
+    feedbackEl.textContent = 'Elige una respuesta. Cada acierto vale 10 puntos.';
+    hintBtn.disabled = false; nextBtn.disabled = true;
+    answered = false; hintUsed = false;
+    levelText.textContent = 'Nivel ' + (Math.floor(questionIndex/4)+1) + ' · ' + (questionIndex<4?'Calentamiento':questionIndex<8?'En marcha':'¡Reto avanzado!');
+    progressBar.style.width = Math.min(100,correctCount/10*100)+'%';
+  }
+  function answer(i, button) {
+    if (answered || !running) return;
+    answered = true;
+    const q = questions[questionIndex % questions.length];
+    [...answersEl.children].forEach((b,j) => {
+      b.disabled = true;
+      if (j===q.correct) b.classList.add('correct');
+    });
+    if (i === q.correct) {
+      correctCount++;
+      score += 10;
+      scoreEl.textContent = score;
+      feedbackEl.className = 'feedback good';
+      feedbackEl.textContent = '¡Excelente! 🎉 ' + q.explain;
+      nextBtn.disabled = false;
+      awardBadges();
+      if (correctCount >= 10) {
+        overlay.classList.add('show');
+        overlayTitle.textContent = '🏆 ¡Maestro de la X!';
+        overlayText.textContent = '¡Completaste 10 retos de álgebra! Sigue jugando para practicar más.';
+        startBtn.textContent = 'Seguir jugando';
+        running = false; clearInterval(timer); pauseBtn.disabled = true;
+      }
+    } else {
+      button.classList.add('wrong');
+      feedbackEl.className = 'feedback bad';
+      feedbackEl.textContent = '¡Casi! La respuesta correcta está marcada en verde. ' + q.explain;
+      nextBtn.disabled = false;
+    }
+    progressBar.style.width = Math.min(100,correctCount/10*100)+'%';
+    updateBest();
+  }
+  function awardBadges() {
+    const achievements = [
+      [1,'🌱 Primer paso','¡Respondiste tu primer reto!'],
+      [3,'⚡ Mente rápida','¡Tres aciertos! Tu mente algebraica está despertando.'],
+      [5,'🧩 Experto en expresiones','¡Cinco retos correctos!'],
+      [10,'🏆 Maestro de la X','¡Diez aciertos! ¡Lo lograste!']
+    ];
+    achievements.forEach(([n,name,msg]) => {
+      if (correctCount>=n && !unlocked.has(n)) {
+        unlocked.add(n);
+        const span=document.createElement('span'); span.className='badge'; span.textContent=name;
+        badgesEl.appendChild(span); achievementText.textContent=msg;
+      }
+    });
+  }
+  function updateBest() {
+    if (score > best) { best = score; bestEl.textContent = best; localStorage.setItem('gusanitoAlgebraicoBest',best); }
+  }
+  function startGame() {
+    overlay.classList.remove('show');
+    if (running && paused) { paused=false; running=true; pauseBtn.textContent='⏸ Pausar'; tickLoop(); return; }
+    running = true; paused = false;
+    pauseBtn.disabled = false; pauseBtn.textContent = '⏸ Pausar';
+    tickLoop();
+  }
+  function tickLoop() {
+    clearInterval(timer);
+    if (!running || paused) return;
+    const speeds=[145,105,75];
+    timer=setInterval(tick,speeds[speedMode]);
+  }
+  function tick() {
+    dir = nextDir;
+    const head = {x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+    if (head.x<0 || head.x>=COLS || head.y<0 || head.y>=ROWS || snake.some((s,i)=>i>0 && s.x===head.x && s.y===head.y)) {
+      gameOver(); return;
+    }
+    snake.unshift(head);
+    if (head.x===apple.x && head.y===apple.y) {
+      apples++; score++; applesEl.textContent=apples; scoreEl.textContent=score;
+      apple=randomCell(); updateBest();
+      feedbackEl.className='feedback good';
+      feedbackEl.textContent='🍎 ¡Manzana conseguida! +1 punto. Sigue moviéndote y resuelve el reto.';
+    } else snake.pop();
+    draw();
+  }
+  function gameOver() {
+    clearInterval(timer); running=false; paused=false;
+    pauseBtn.disabled=true;
+    overlay.classList.add('show');
+    overlayTitle.textContent='¡Fin del juego! 🐍';
+    overlayText.textContent='Puntuación: '+score+'. ¡Cada intento te ayuda a mejorar!';
+    startBtn.textContent='↻ Jugar otra vez';
+    updateBest();
+  }
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#0b1423'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.strokeStyle='rgba(125,155,190,.09)'; ctx.lineWidth=1;
+    for(let x=0;x<=COLS;x++){ctx.beginPath();ctx.moveTo(x*CELL,0);ctx.lineTo(x*CELL,canvas.height);ctx.stroke();}
+    for(let y=0;y<=ROWS;y++){ctx.beginPath();ctx.moveTo(0,y*CELL);ctx.lineTo(canvas.width,y*CELL);ctx.stroke();}
+    // Apple
+    const ax=apple.x*CELL+CELL/2, ay=apple.y*CELL+CELL/2;
+    ctx.fillStyle='#ff5d73'; ctx.beginPath(); ctx.arc(ax,ay+2,10,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#ff9aaa'; ctx.beginPath(); ctx.arc(ax-3,ay-1,3,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#5ee09a'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(ax,ay-8); ctx.quadraticCurveTo(ax+3,ay-15,ax+8,ay-12); ctx.stroke();
+    snake.forEach((s,i)=>{
+      const x=s.x*CELL, y=s.y*CELL;
+      ctx.fillStyle=i===0?'#75f0ac':(i%2?'#36bf82':'#2cae75');
+      roundedRect(ctx,x+2,y+2,CELL-4,CELL-4,8); ctx.fill();
+      if(i===0){
+        ctx.fillStyle='#102437';
+        let ex1=x+10,ey1=y+10,ex2=x+21,ey2=y+10;
+        if(dir.x===1){ex1=x+20;ey1=y+9;ex2=x+20;ey2=y+20;}
+        if(dir.x===-1){ex1=x+9;ey1=y+9;ex2=x+9;ey2=y+20;}
+        if(dir.y===1){ex1=x+9;ey1=y+20;ex2=x+20;ey2=y+20;}
+        if(dir.y===-1){ex1=x+9;ey1=y+9;ex2=x+20;ey2=y+9;}
+        ctx.beginPath();ctx.arc(ex1,ey1,2.2,0,Math.PI*2);ctx.arc(ex2,ey2,2.2,0,Math.PI*2);ctx.fill();
+      }
+    });
+  }
+  function roundedRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  function changeDir(d) {
+    if (!running || paused) return;
+    const map={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
+    const nd=map[d]; if(!nd) return;
+    if(nd.x===-dir.x && nd.y===-dir.y) return;
+    nextDir=nd;
+  }
+  document.addEventListener('keydown',e=>{
+    const map={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right',W:'up',S:'down',A:'left',D:'right'};
+    if(map[e.key]){e.preventDefault();changeDir(map[e.key]);}
+    if(e.key===' '){e.preventDefault(); if(running){paused=!paused;pauseBtn.textContent=paused?'▶ Continuar':'⏸ Pausar';if(paused)clearInterval(timer);else tickLoop();}}
+  });
+  document.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>changeDir(b.dataset.dir)));
+  startBtn.addEventListener('click',()=>{
+    if(!running && correctCount>=10){correctCount=0;questionIndex=0;showQuestion();}
+    if(!running && snake && overlayTitle.textContent==='¡Fin del juego! 🐍') resetGame();
+    startGame();
+  });
+  pauseBtn.addEventListener('click',()=>{
+    if(!running && paused)return;
+    if(paused){paused=false;running=true;pauseBtn.textContent='⏸ Pausar';tickLoop();}
+    else {paused=true;clearInterval(timer);pauseBtn.textContent='▶ Continuar';}
+  });
+  restartBtn.addEventListener('click',()=>{resetGame();startGame();});
+  speedBtn.addEventListener('click',()=>{speedMode=(speedMode+1)%3;speedBtn.textContent='⚡ Velocidad: '+['normal','rápida','experta'][speedMode];if(running&&!paused)tickLoop();});
+  hintBtn.addEventListener('click',()=>{
+    if(answered)return;
+    const q=questions[questionIndex%questions.length];
+    feedbackEl.className='feedback';feedbackEl.textContent='💡 Pista: '+q.hint;hintUsed=true;
+  });
+  nextBtn.addEventListener('click',()=>{
+    questionIndex++;showQuestion();
+    if(!running && correctCount<10 && overlay.classList.contains('show')) startGame();
+  });
+  resetGame();
+})();
+</script>
+</body>
+</html>
